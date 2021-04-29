@@ -5,7 +5,6 @@ import timeit
 import os
 from collections import defaultdict
 
-
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN = 0  # action 0 code 00
 PHASE_NS_YELLOW = 1
@@ -50,7 +49,7 @@ class Simulation:
         # inits
         self._step = 0
         self._waiting_times = {}
-        self._sum_neg_reward = 0
+        self._sum_reward = 0
         self._sum_queue_length = 0
         self._average_queue_length = []
         self._sum_waiting_time = 0
@@ -68,18 +67,21 @@ class Simulation:
             current_total_wait = self._collect_waiting_times()
             reward = old_total_wait - current_total_wait
 
+            # saving only the meaningful reward to better see if the agent is behaving correctly
+            self._sum_reward += reward
+
             # saving the data into the memory
             if self._step != 0:
                 self._Memory.add_sample((old_state, old_action, reward, current_state))
 
             # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(current_state, epsilon)
+            action_frequency[action] += 1
 
-            # add exploration reward
+            # add exploration reward if not epsilon_greedy
             if not self._is_greedy:
-                action = self._choose_action(current_state, epsilon)
-                action_frequency[action] += 1
-                reward += np.sqrt(np.log(self._step+1)/action_frequency[action])
+                reward += np.sqrt(np.log(self._step + 1) / action_frequency[action]) * 0.1  # stability coefficient
+
             # if the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
@@ -94,12 +96,8 @@ class Simulation:
             old_action = action
             old_total_wait = current_total_wait
 
-            # saving only the meaningful reward to better see if the agent is behaving correctly
-            if reward < 0:
-                self._sum_neg_reward += reward
-
         self._save_episode_stats()
-        print("Total reward:", self._sum_neg_reward, "- Epsilon:", round(epsilon, 2))
+        print("Total reward:", self._sum_reward, "- Epsilon:", round(epsilon, 2))
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
@@ -115,7 +113,8 @@ class Simulation:
         """
         Execute steps in sumo while gathering statistics
         """
-        if (self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
+        if (
+                self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
             steps_todo = self._max_steps - self._step
 
         while steps_todo > 0:
@@ -249,7 +248,8 @@ class Simulation:
                 valid_car = False  # flag for not detecting cars crossing the intersection or driving away from it
 
             if valid_car:
-                state[car_position] = 1  # write the position of the car car_id in the state array in the form of "cell occupied"
+                state[
+                    car_position] = 1  # write the position of the car car_id in the state array in the form of "cell occupied"
 
         return state
 
@@ -274,7 +274,8 @@ class Simulation:
             for i, b in enumerate(batch):
                 state, action, reward, _ = b[0], b[1], b[2], b[3]  # extract data from one sample
                 current_q = q_current[i]  # get the Q(state) predicted before
-                current_q[action] = reward + self._gamma * np.amax(q_future[i])  # update Q(state, action) according to Bellman
+                current_q[action] = reward + self._gamma * np.amax(
+                    q_future[i])  # update Q(state, action) according to Bellman
                 x[i] = state
                 y[i] = current_q  # Q(state) that includes the updated action value
 
@@ -284,11 +285,9 @@ class Simulation:
         """
         Save the stats of the episode to plot the graphs at the end of the session
         """
-        self._reward_store.append(self._sum_neg_reward)  # how much negative reward in this episode
+        self._reward_store.append(self._sum_reward)  # how much negative reward in this episode
         self._cumulative_wait_store.append(
             self._sum_waiting_time)  # total number of seconds waited by cars in this episode
-        self._avg_queue_length_store.append(
-            self._sum_queue_length / self._max_steps)  # average number of queued cars per step, in this episode
 
     @property
     def reward_store(self):
@@ -297,7 +296,3 @@ class Simulation:
     @property
     def cumulative_wait_store(self):
         return self._cumulative_wait_store
-
-    @property
-    def avg_queue_length_store(self):
-        return self._avg_queue_length_store

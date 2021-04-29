@@ -30,6 +30,7 @@ class Simulation:
         self._reward_episode = []
         self._queue_length_episode = []
         self._waiting_times = {}
+        self._total_wait_time = 0
 
     def run(self, episode):
         """
@@ -40,15 +41,16 @@ class Simulation:
         # first, generate the route file for this simulation and set up sumo
         car_timings = self._TrafficGen.generate_routefile(seed=episode)
         traci.start(self._sumo_cmd)
-        print("Simulating...")
+        # print("Simulating...")
 
         # inits
         self._step = 0
         self._waiting_times = {}
         self._queue_length_episode = []
         old_total_wait = 0
-        old_action = -1  # dummy init
-
+        current_total_wait = 0
+        old_action = -1  # dummy inits
+        self._reward_episode = []
         while self._step < self._max_steps:
 
             # get current state of the intersection
@@ -81,6 +83,7 @@ class Simulation:
             # self._reward_episode.append(reward)
 
         total_reward = np.sum(self._reward_episode)
+        self._total_wait_time = current_total_wait
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
@@ -90,8 +93,8 @@ class Simulation:
         """
         Proceed with the simulation in sumo
         """
-        if (
-                self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
+        # do not do more steps than the maximum allowed number of steps
+        if (self._step + steps_todo) >= self._max_steps:
             steps_todo = self._max_steps - self._step
 
         while steps_todo > 0:
@@ -225,6 +228,9 @@ class Simulation:
                     car_position] = 1  # write the position of the car car_id in the state array in the form of "cell occupied"
 
         return state
+
+    def cumulative_total_wait(self):
+        return np.sum(self._queue_length_episode)
 
     @property
     def queue_length_episode(self):

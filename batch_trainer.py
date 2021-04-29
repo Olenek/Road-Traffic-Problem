@@ -64,36 +64,19 @@ if __name__ == "__main__":
         episode = 0
         timestamp_start = datetime.datetime.now()
         file_postfix = re.match(r'\w+_\w+_(.*)\.\w+', file).groups()[0]
-        with open("batch_results/_" + file_postfix + ".txt", 'a') as f:
-            if config['is_greedy']:
-                while episode < config['total_episodes']:
-                    f.write('\n----- Episode {} of {}'.format(str(episode + 1), str(config['total_episodes'])))
-                    epsilon = 1.0 - (episode / config[
-                        'total_episodes'])  # set the epsilon for this episode according to epsilon-greedy policy
-                    simulation_time, training_time = simulation.run(episode, epsilon)  # run the simulation
-                    f.write(
-                        'Simulation time: {}s - Training time: '
-                        '{}s - Total: {}s'.format(simulation_time, training_time,
-                                                  round(simulation_time + training_time, 1)))
-                    episode += 1
-            else:
-                while episode < config['total_episodes']:
-                    f.write('\n----- Episode {} of {}'.format(str(episode + 1), str(config['total_episodes'])))
 
-                    simulation_time, training_time = simulation.run(episode, 0)  # run the simulation
-                    f.write(
-                        'Simulation time: {}s - Training time: '
-                        '{}s - Total: {}s'.format(simulation_time, training_time,
-                                                  round(simulation_time + training_time, 1)))
-                    episode += 1
+        if config['is_greedy']:
+            while episode < config['total_episodes']:
+                print("Episode: {} of {}. Model id: {}".format(episode + 1, config['total_episodes'], file_postfix))
+                epsilon = 1.0 - (episode / config[
+                    'total_episodes'])  # set the epsilon for this episode according to epsilon-greedy policy
+                simulation_time, training_time = simulation.run(episode, epsilon)  # run the simulation
+                episode += 1
+        else:
+            while episode < config['total_episodes']:
+                print("Episode: {} of {}. Model id: {}".format(episode + 1, config['total_episodes'], file_postfix))
+                simulation_time, training_time = simulation.run(episode, 0)  # run the simulation
+                episode += 1
 
-            model.save_model(path)
-
-            copyfile(src="training_batch/" + file, dst=os.path.join(path, 'settings/training_settings.ini'))
-
-            visualization.save_data_and_plot(data=simulation.reward_store, filename='reward', xlabel='Episode',
-                                             ylabel='Cumulative negative reward')
-            visualization.save_data_and_plot(data=simulation.cumulative_wait_store, filename='delay', xlabel='Episode',
-                                             ylabel='Cumulative delay (s)')
-            visualization.save_data_and_plot(data=simulation.avg_queue_length_store, filename='queue', xlabel='Episode',
-                                             ylabel='Average queue length (vehicles)')
+        copyfile(src="training_batch/" + file, dst=os.path.join(path, 'training_settings.ini'))
+        model.save_model(path)
