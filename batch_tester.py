@@ -45,10 +45,22 @@ def test(models_to_test_str, n_cars, episode_count, seed_shift):
         avg_delay = 0
         raw_data = []
         for i in range(episode_count):
+            simulation = Simulation(
+                model,
+                traffic_gen,
+                sumo_cmd,
+                config['max_steps'],
+                config['green_duration'],
+                config['yellow_duration'],
+                config['num_states'],
+                config['num_actions'],
+            )
+
             # print("Episode: {} of {}. Model id: {}".format(i + 1, episode_count, model_id))
             total_reward, simulation_time, car_timings = simulation.run(config['episode_seed']+i+seed_shift)
             raw_data.append(simulation.queue_length_episode)
             delay = simulation.cumulative_total_wait()
+            print(delay)
             avg_delay += delay / episode_count
         to_graph_raw = []
         for i in range(episode_count):
@@ -90,17 +102,24 @@ def group_aql(models_to_test_str, n_cars, with_benchmark):
 if __name__ == "__main__":
     test("1 2 3 4 5 6 7", 1000, 5, 0)
     test("1 2 3 4 5 6 7", 2500, 5, 0)
+    #
+    # test("1 4 7 8 9 10", 1000, 5, 5)
+    # test("1 4 7 8 9 10", 2500, 5, 5)
+    #
+    # group_aql("1 4 7", 1000, 0)
+    # group_aql("1 4 7", 2500, 0)
+    #
+    # make_benchmark(1000, 10, 10)
 
-    test("1 4 7 8 9 10", 1000, 5, 5)
-    test("1 4 7 8 9 10", 2500, 5, 5)
-
-    group_aql("1 4 7", 1000, 0)
-    group_aql("1 4 7", 2500, 0)
-
-    make_benchmark(1000, 10, 10)
-    make_benchmark(2500, 10, 10)
-
-    test("4 9", 1000, 10, 10)
-    test("4 9", 2500, 10, 10)
-    group_aql("4 9", 1000, 1)
-    group_aql("4 9", 2500, 1)
+    # test("4 9", 2500, 5, 10)
+    # make_benchmark(2500, 5, 10)
+    #
+    # test("1 4", 1000, 5, 10)
+    # test("1 4", 2500, 5, 10)
+    # test("12", 2500, 10, 10)
+    # test("12", 1000, 10, 10)
+    # group_aql("1 4 7 9", 1000, 0)
+    # group_aql("4 9", 2500, 1)
+    # test("4 9 12", 3500, 5, 10)
+    # make_benchmark(3500, 5, 10)
+    # group_aql("4 9 12", 3500, 1)
