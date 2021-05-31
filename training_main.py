@@ -11,7 +11,6 @@ from src.memory import Memory
 from src.model import TrainModel
 from src.visualization import Visualization
 from src.utils import import_train_configuration, set_sumo, set_train_path
-import tensorflow as tf
 
 if __name__ == "__main__":
 
@@ -44,31 +43,29 @@ if __name__ == "__main__":
         dpi=96
     )
 
-    Simulation = Simulation(
-        Model,
-        Memory,
-        TrafficGen,
-        sumo_cmd,
-        config['gamma'],
-        config['max_steps'],
-        config['green_duration'],
-        config['yellow_duration'],
-        config['num_states'],
-        config['num_actions'],
-        config['training_epochs'],
-        config['is_greedy']
-    )
-
     episode = 0
     timestamp_start = datetime.datetime.now()
 
-    print(tf.test.is_gpu_available())
     if config['is_greedy']:
         while episode < config['total_episodes']:
+            simulation = Simulation(
+                Model,
+                Memory,
+                TrafficGen,
+                sumo_cmd,
+                config['gamma'],
+                config['max_steps'],
+                config['green_duration'],
+                config['yellow_duration'],
+                config['num_states'],
+                config['num_actions'],
+                config['training_epochs'],
+                config['is_greedy']
+            )
             print('\n----- Episode', str(episode + 1), 'of', str(config['total_episodes']))
             epsilon = 1.0 - (episode / config[
                 'total_episodes'])  # set the epsilon for this episode according to epsilon-greedy policy
-            simulation_time, training_time = Simulation.run(episode, epsilon)  # run the simulation
+            simulation_time, training_time = simulation.run(episode, epsilon)  # run the simulation
             print('Simulation time:', simulation_time, 's - Training time:', training_time, 's - Total:',
                   round(simulation_time + training_time, 1), 's')
             episode += 1
@@ -86,11 +83,11 @@ if __name__ == "__main__":
 
     Model.save_model(path)
 
-    copyfile(src='settings/training_settings.ini', dst=os.path.join(path, 'settings/training_settings.ini'))
+    copyfile(src='settings/training_settings.ini', dst=os.path.join(path, 'training_settings.ini'))
 
-    Visualization.save_data_and_plot(data=Simulation.reward_store, filename='reward', xlabel='Episode',
-                                     ylabel='Cumulative negative reward')
-    Visualization.save_data_and_plot(data=Simulation.cumulative_wait_store, filename='delay', xlabel='Episode',
-                                     ylabel='Cumulative delay (s)')
-    Visualization.save_data_and_plot(data=Simulation.avg_queue_length_store, filename='queue', xlabel='Episode',
-                                     ylabel='Average queue length (vehicles)')
+    # Visualization.save_data_and_plot(data=Simulation.reward_store, filename='reward', xlabel='Episode',
+    #                                  ylabel='Cumulative negative reward')
+    # Visualization.save_data_and_plot(data=Simulation.cumulative_wait_store, filename='delay', xlabel='Episode',
+    #                                  ylabel='Cumulative delay (s)')
+    # Visualization.save_data_and_plot(data=Simulation.avg_queue_length_store, filename='queue', xlabel='Episode',
+    #                                  ylabel='Average queue length (vehicles)')

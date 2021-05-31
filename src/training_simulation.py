@@ -53,9 +53,12 @@ class Simulation:
         self._sum_queue_length = 0
         self._average_queue_length = []
         self._sum_waiting_time = 0
+        is_stl_cycle = 0
         old_total_wait = 0
         old_state = -1
         old_action = -1
+        threshold = 0.5
+        counter = 0
         action_frequency = defaultdict(lambda: 0)
         while self._step < self._max_steps:
 
@@ -68,39 +71,69 @@ class Simulation:
             reward = old_total_wait - current_total_wait
 
             # saving only the meaningful reward to better see if the agent is behaving correctly
-            self._sum_reward += reward
+            self._sum_reward += min(0, reward)
 
             # saving the data into the memory
             if self._step != 0:
                 self._Memory.add_sample((old_state, old_action, reward, current_state))
 
+            allow_stl = sum(current_state) / len(current_state) >= threshold
             # choose the light phase to activate, based on the current state of the intersection
-            action = self._choose_action(current_state, epsilon)
+            action = self._choose_action(current_state, epsilon, allow_stl=allow_stl)
             action_frequency[action] += 1
 
             # add exploration reward if not epsilon_greedy
             if not self._is_greedy:
                 reward += np.sqrt(np.log(self._step + 1) / action_frequency[action]) * 0.1  # stability coefficient
 
-            # if the chosen phase is different from the last phase, activate the yellow phase
-            if self._step != 0 and old_action != action:
-                self._set_yellow_phase(old_action)
-                self._simulate(self._yellow_duration)
+            if action != 4:
+                # if the chosen phase is different from the last phase, activate the yellow phase
+                if self._step != 0 and old_action != action:
+                    if old_action == 4:
+                        self._set_yellow_phase(3)
+                    else:
+                        self._set_yellow_phase(old_action)
+                    self._simulate(self._yellow_duration)
 
-            # execute the phase selected before
-            self._set_green_phase(action)
-            self._simulate(self._green_duration)
+                # execute the phase selected before
+                self._set_green_phase(action)
+                self._simulate(self._green_duration)
 
-            # saving variables for later & accumulate reward
-            old_state = current_state
-            old_action = action
-            old_total_wait = current_total_wait
+                # saving variables for later & accumulate reward
+                old_state = current_state
+                old_action = action
+                old_total_wait = current_total_wait
+            else:
+                counter += 1
+                initial_step = self._step
+                old_total_wait = current_total_wait
+
+                while self._step < (initial_step + 126) and self._step < self._max_steps:
+                    # choose the light phase to activate, based on the current state of the intersection
+                    action = self._choose_stl_action(self._step - initial_step, old_action)
+                    if self._step != 0 and old_action != action:
+                        if old_action == 4:
+                            self._set_yellow_phase(3)
+                        else:
+                            try:
+                                self._set_yellow_phase(old_action)
+                            except:
+                                print(action, old_action)
+                        self._simulate(self._yellow_duration)
+                    # execute the phase selected before
+                    self._set_green_phase(action)
+                    self._simulate(self._green_duration)
+
+                    # saving variables for later & accumulate reward
+                    old_state = current_state
+                    old_action = action
+                old_action = 4
 
         self._save_episode_stats()
         print("Total reward:", self._sum_reward, "- Epsilon:", round(epsilon, 2))
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
-
+        print("Made {} stl cycles".format(counter))
         print("Training...")
         start_time = timeit.default_timer()
         for _ in range(self._training_epochs):
@@ -113,8 +146,7 @@ class Simulation:
         """
         Execute steps in sumo while gathering statistics
         """
-        if (
-                self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
+        if (self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
             steps_todo = self._max_steps - self._step
 
         while steps_todo > 0:
@@ -143,14 +175,35 @@ class Simulation:
         total_waiting_time = sum(self._waiting_times.values())
         return total_waiting_time
 
-    def _choose_action(self, state, epsilon):
+    def _choose_action(self, state, epsilon, allow_stl):
         """
         Decide whether to perform an explorative or exploitative action, according to an epsilon-greedy policy
         """
         if random.random() < epsilon and self._is_greedy:
             return random.randint(0, self._num_actions - 1)  # random action
         else:
-            return np.argmax(self._Model.predict_one(state))  # the best action given the current state
+            prediction = self._Model.predict_one(state)
+            if not allow_stl and np.argmax(prediction) == 4:
+                try:
+                    np.argsort(prediction[0])[::-1][1]
+                except:
+                    print(prediction)
+                return np.argsort(prediction[0])[::-1][1] # the second best if not allowed to stl
+            return np.argmax(prediction)  # the best action given the current state
+
+    def _choose_stl_action(self, current_step, old_action):
+        """
+        Pick the appropriate stl green phase
+        """
+        t = current_step % 126
+        if 0 <= t < 40:
+            return 0
+        elif 40 <= t < 63:
+            return 1
+        elif 63 <= t < 103:
+            return 2
+        elif 103 <= t < 126:
+            return 3
 
     def _set_yellow_phase(self, old_action):
         """
@@ -171,6 +224,8 @@ class Simulation:
             traci.trafficlight.setPhase("TL", PHASE_EW_GREEN)
         elif action_number == 3:
             traci.trafficlight.setPhase("TL", PHASE_EWL_GREEN)
+        elif action_number == 4:
+            print("Unexpected behaviour, ignoring...")
 
     def _get_queue_length(self):
         """

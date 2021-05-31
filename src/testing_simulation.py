@@ -51,6 +51,8 @@ class Simulation:
         current_total_wait = 0
         old_action = -1  # dummy inits
         self._reward_episode = []
+        threshold = 0.75
+        counter = 0
         while self._step < self._max_steps:
 
             # get current state of the intersection
@@ -61,31 +63,60 @@ class Simulation:
             current_total_wait = self._collect_waiting_times()
             reward = old_total_wait - current_total_wait
 
+            # saving only the meaningful reward to better see if the agent is behaving correctly
+
+            allow_stl = sum(current_state) / len(current_state) >= threshold
             # choose the light phase to activate, based on the current state of the intersection
-            action = self._choose_action(current_state)
+            action = self._choose_action(current_state, allow_stl=allow_stl)
 
-            # if the chosen phase is different from the last phase, activate the yellow phase
-            if self._step != 0 and old_action != action:
-                self._set_yellow_phase(old_action)
-                self._simulate(self._yellow_duration)
+            if action != 4:
+                # if the chosen phase is different from the last phase, activate the yellow phase
+                if self._step != 0 and old_action != action:
+                    if old_action == 4:
+                        self._set_yellow_phase(3)
+                    else:
+                        self._set_yellow_phase(old_action)
+                    self._simulate(self._yellow_duration)
 
-            # execute the phase selected before
-            self._set_green_phase(action)
-            self._simulate(self._green_duration)
+                # execute the phase selected before
+                self._set_green_phase(action)
+                self._simulate(self._green_duration)
 
-            # saving variables for later & accumulate reward
-            old_action = action
-            old_total_wait = current_total_wait
+                # saving variables for later & accumulate reward
+                old_state = current_state
+                old_action = action
+                old_total_wait = current_total_wait
+            else:
+                counter += 1
+                initial_step = self._step
+                old_total_wait = current_total_wait
 
-            if reward < 0:
-                self._reward_episode.append(reward)
+                while self._step < (initial_step + 126) and self._step < self._max_steps:
+                    # choose the light phase to activate, based on the current state of the intersection
+                    action = self._choose_stl_action(self._step - initial_step, old_action)
+                    if self._step != 0 and old_action != action:
+                        if old_action == 4:
+                            self._set_yellow_phase(3)
+                        else:
+                            try:
+                                self._set_yellow_phase(old_action)
+                            except:
+                                print(action, old_action)
+                        self._simulate(self._yellow_duration)
+                    # execute the phase selected before
+                    self._set_green_phase(action)
+                    self._simulate(self._green_duration)
 
-            # self._reward_episode.append(reward)
+                    # saving variables for later & accumulate reward
+                    old_state = current_state
+                    old_action = action
+                old_action = 4
 
         total_reward = np.sum(self._reward_episode)
         self._total_wait_time = current_total_wait
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
+        print("Made {} stl cycles".format(counter))
 
         return total_reward, simulation_time, car_timings
 
@@ -121,11 +152,32 @@ class Simulation:
         total_waiting_time = sum(self._waiting_times.values())
         return total_waiting_time
 
-    def _choose_action(self, state):
+    def _choose_action(self, state, allow_stl):
         """
         Pick the best action known based on the current state of the env
         """
-        return np.argmax(self._Model.predict_one(state))
+        prediction = self._Model.predict_one(state)
+        if not allow_stl and np.argmax(prediction) == 4:
+            try:
+                np.argsort(prediction[0])[::-1][1]
+            except:
+                print(prediction)
+            return np.argsort(prediction[0])[::-1][1]  # the second best if not allowed to stl
+        return np.argmax(prediction)  # the best action given the current state
+
+    def _choose_stl_action(self, current_step, old_action):
+        """
+        Pick the appropriate stl green phase
+        """
+        t = current_step % 126
+        if 0 <= t < 40:
+            return 0
+        elif 40 <= t < 63:
+            return 1
+        elif 63 <= t < 103:
+            return 2
+        elif 103 <= t < 126:
+            return 3
 
     def _set_yellow_phase(self, old_action):
         """
