@@ -46,10 +46,10 @@ if __name__ == "__main__":
     total_reward, simulation_time, car_timings = Simulation.run(config['episode_seed'])  # run the simulation
     print('Simulation time:', simulation_time, 's')
 
-    print('Total_reward:', total_reward)
+    print('Total_delay:', Simulation.cumulative_total_wait())
 
     print("----- Testing info saved at:", plot_path)
 
-    copyfile(src='settings/testing_settings.ini', dst=os.path.join(plot_path, 'settings/testing_settings.ini'))
+    copyfile(src='settings/testing_settings.ini', dst=os.path.join(plot_path, 'testing_settings.ini'))
 
     Visualization.plot_timings(timings=car_timings)
