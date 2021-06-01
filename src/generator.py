@@ -7,9 +7,6 @@ class TrafficGenerator:
         self._max_steps = max_steps
 
     def generate_routefile(self, seed):
-        """
-        Generation of the route of every car for one episode
-        """
         np.random.seed(seed)  # make tests reproducible
 
         # the generation of cars is distributed according to a weibull distribution

@@ -12,7 +12,6 @@ from src.utils import import_test_configuration, set_sumo, set_test_path
 
 
 if __name__ == "__main__":
-
     config = import_test_configuration(config_file='settings/testing_settings.ini')
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
     model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_test'])
@@ -53,6 +52,4 @@ if __name__ == "__main__":
 
     copyfile(src='settings/testing_settings.ini', dst=os.path.join(plot_path, 'settings/testing_settings.ini'))
 
-    Visualization.save_data_and_plot(data=Simulation.reward_episode, filename='reward', xlabel='Action step', ylabel='Reward')
-    Visualization.save_data_and_plot(data=Simulation.queue_length_episode, filename='queue', xlabel='Step', ylabel='Queue length (vehicles)')
     Visualization.plot_timings(timings=car_timings)

@@ -37,20 +37,14 @@ class Simulation:
         self._total_wait_time = 0
 
     def run(self, episode):
-        """
-        Runs the testing simulation
-        """
-        start_time = timeit.default_timer()
+        timeit.default_timer()
 
-        # first, generate the route file for this simulation and set up sumo
         self._TrafficGen.generate_routefile(seed=episode)
         traci.start(self._sumo_cmd)
-        # print("Simulating...")
 
-        # inits
         self._step = 0
         self._waiting_times = {}
-        old_action = -1  # dummy init
+        old_action = -1
         self._queue_length_episode = []
         self._reward_episode = []
         self._total_wait_time = 0
@@ -58,16 +52,11 @@ class Simulation:
         while self._step < self._max_steps:
             current_total_wait = self._collect_waiting_times()
 
-            # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(self._step, old_action)
 
-            # if the chosen phase is different from the last phase, activate the yellow phase
-
-            # execute the phase selected before
             self._set_green_phase(action)
             self._simulate(self._green_duration)
 
-            # saving variables for later & accumulate reward
             old_action = action
 
         self._total_wait_time = current_total_wait
@@ -76,11 +65,7 @@ class Simulation:
         return 0
 
     def _simulate(self, steps_todo):
-        """
-        Proceed with the simulation in sumo
-        """
-        if (
-                self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
+        if (self._step + steps_todo) >= self._max_steps:
             steps_todo = self._max_steps - self._step
 
         while steps_todo > 0:
@@ -108,9 +93,6 @@ class Simulation:
         return total_waiting_time
 
     def _choose_action(self, current_step, old_action):
-        """
-        Pick the best action known based on the current state of the env
-        """
         t = current_step % 126
         if 0 <= t < 40:
             return 0
@@ -125,16 +107,10 @@ class Simulation:
             self._simulate(self._yellow_duration)
 
     def _set_yellow_phase(self, old_action):
-        """
-        Activate the correct yellow light combination in sumo
-        """
         yellow_phase_code = old_action * 2 + 1  # obtain the yellow phase code, based on the old action (ref on environment.net.xml)
         traci.trafficlight.setPhase("TL", yellow_phase_code)
 
     def _set_green_phase(self, action_number):
-        """
-        Activate the correct green light combination in sumo
-        """
         if action_number == 0:
             traci.trafficlight.setPhase("TL", PHASE_NS_GREEN)
         elif action_number == 1:
@@ -145,9 +121,6 @@ class Simulation:
             traci.trafficlight.setPhase("TL", PHASE_EWL_GREEN)
 
     def _get_queue_length(self):
-        """
-        Retrieve the number of cars with speed = 0 in every incoming lane
-        """
         halt_N = traci.edge.getLastStepHaltingNumber("N2TL")
         halt_S = traci.edge.getLastStepHaltingNumber("S2TL")
         halt_E = traci.edge.getLastStepHaltingNumber("E2TL")
