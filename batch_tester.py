@@ -10,6 +10,11 @@ from src.benchmark_stl import make_benchmark
 
 
 def test(models_to_test_str, n_cars, episode_count, seed_shift, filename):
+    """
+    Runs testing procedure for models specified in 'models_to_test_str',
+    outputs total delay per episode and average value
+    produces graphs of required metrics
+    """
     with open("test_results/"+filename, 'a') as out:
         config = import_test_configuration(config_file='settings/testing_settings.ini')
         sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
@@ -85,6 +90,10 @@ def test(models_to_test_str, n_cars, episode_count, seed_shift, filename):
 
 
 def group_aql(models_to_test_str, n_cars, with_benchmark):
+    """
+    Combines AQL metric graphs of 'models_to_test_str' on 'n_cars' scenarios
+    optionally adds results of the benchmark
+    """
     visualization = Visualization(
         "test_results",
         dpi=96
@@ -93,26 +102,26 @@ def group_aql(models_to_test_str, n_cars, with_benchmark):
 
 
 if __name__ == "__main__":
-    # test("1 2 3 4 5 6 7", 1000, 5, 0, "table1-1.txt")
-    # test("1 2 3 4 5 6 7", 2500, 5, 0, "table1-2.txt")
-    # group_aql("1 4 7", 1000, 0)
-    # group_aql("1 4 7", 2500, 0)
+    test("1 2 3 4 5 6 7", 1000, 5, 0, "table1-1.txt")
+    test("1 2 3 4 5 6 7", 2500, 5, 0, "table1-2.txt")
+    group_aql("1 4 7", 1000, 0)
+    group_aql("1 4 7", 2500, 0)
 
-    # test("1 4 7 8 9 10", 1000, 5, 5, "table2-1.txt")
-    # test("1 4 7 8 9 10", 2500, 5, 5, "table2-2.txt")
+    test("1 4 7 8 9 10", 1000, 5, 5, "table2-1.txt")
+    test("1 4 7 8 9 10", 2500, 5, 5, "table2-2.txt")
 
-    # test("1 9", 1000, 10, 10, "tmp.txt")
-    # test("1 9", 2500, 10, 10, "tmp.txt")
-    # make_benchmark(1000, 10, 10)
-    # make_benchmark(2500, 10, 10)
-    #
+    test("1 9", 1000, 10, 10, "tmp.txt")
+    test("1 9", 2500, 10, 10, "tmp.txt")
+    make_benchmark(1000, 10, 10)
+    make_benchmark(2500, 10, 10)
+
     group_aql("1 4 7", 1000, 1)
 
-    # make_benchmark(1000, 10, 20)
-    # make_benchmark(2500, 10, 20)
-    #
-    test("1 9 12", 1000, 10, 20, "table3-3.txt")
-    # test("1 9 12", 2500, 10, 20, "table3-4.txt")
+    make_benchmark(1000, 10, 20)
+    make_benchmark(2500, 10, 20)
 
-    # group_aql("4 9 12", 1000, 1)
-    # group_aql("1 9 12", 2500, 1)
+    test("1 9 12", 1000, 10, 20, "table3-3.txt")
+    test("1 9 12", 2500, 10, 20, "table3-4.txt")
+
+    group_aql("1 9 12", 1000, 1)
+    group_aql("1 9 12", 2500, 1)

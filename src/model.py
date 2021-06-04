@@ -13,6 +13,9 @@ from tensorflow.keras.models import load_model
 
 
 class TrainModel:
+    """
+    Class of models used in training simulations
+    """
     def __init__(self, num_layers, width, batch_size, learning_rate, input_dim, output_dim, optimizer_name):
         self._input_dim = input_dim
         self._output_dim = output_dim
@@ -21,6 +24,9 @@ class TrainModel:
         self._model = self._build_model(num_layers, width, optimizer_name)
 
     def _build_model(self, num_layers, width, optimizer_name):
+        """
+        Builds neural network from keras module
+        """
         inputs = keras.Input(shape=(self._input_dim,))
         x = layers.Dense(width, activation='relu')(inputs)
         for _ in range(num_layers):
@@ -38,16 +44,28 @@ class TrainModel:
         return model
 
     def predict_one(self, state):
+        """
+        Make a prediction from 1-d array state
+        """
         state = np.reshape(state, [1, self._input_dim])
         return self._model.predict(state)
 
     def predict_batch(self, states):
+        """
+        Make predictions from 2-d array of states
+        """
         return self._model.predict(states)
 
     def train_batch(self, states, q_sa):
+        """
+        Train neural network on a batch of states(inputs) and targets(q_sa)
+        """
         self._model.fit(states, q_sa, epochs=1, verbose=0)
 
     def save_model(self, path):
+        """
+        Save neural network to file in a corresponding directory
+        """
         self._model.save(os.path.join(path, 'trained_model.h5'))
 
     @property
@@ -64,11 +82,18 @@ class TrainModel:
 
 
 class TestModel:
+    """
+    Class of models for testing
+    """
     def __init__(self, input_dim, model_path):
         self._input_dim = input_dim
         self._model = self._load_my_model(model_path)
 
-    def _load_my_model(self, model_folder_path):
+    @staticmethod
+    def _load_my_model(model_folder_path):
+        """
+        Loads and returns the neural network from the file
+        """
         model_file_path = os.path.join(model_folder_path, 'trained_model.h5')
 
         if os.path.isfile(model_file_path):
@@ -78,6 +103,9 @@ class TestModel:
             sys.exit("Model number not found")
 
     def predict_one(self, state):
+        """
+        Make a prediction from 1-d array state
+        """
         state = np.reshape(state, [1, self._input_dim])
         return self._model.predict(state)
 

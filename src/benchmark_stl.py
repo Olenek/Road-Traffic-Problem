@@ -22,8 +22,8 @@ PHASE_EWL_YELLOW = 7
 
 
 class Simulation:
-    def __init__(self, TrafficGen, sumo_cmd, max_steps, green_duration, yellow_duration, num_states, num_actions):
-        self._TrafficGen = TrafficGen
+    def __init__(self, traffic_gen, sumo_cmd, max_steps, green_duration, yellow_duration, num_states, num_actions):
+        self._TrafficGen = traffic_gen
         self._step = 0
         self._sumo_cmd = sumo_cmd
         self._max_steps = max_steps
@@ -37,8 +37,9 @@ class Simulation:
         self._total_wait_time = 0
 
     def run(self, episode):
-        timeit.default_timer()
-
+        """
+        Runs a single episode of the simulation with STL
+        """
         self._TrafficGen.generate_routefile(seed=episode)
         traci.start(self._sumo_cmd)
 
@@ -72,6 +73,9 @@ class Simulation:
         return 0
 
     def _simulate(self, steps_todo):
+        """
+        Simulates intersection for 'steps_todo' steps
+        """
         if (self._step + steps_todo) >= self._max_steps:
             steps_todo = self._max_steps - self._step
 
@@ -84,7 +88,7 @@ class Simulation:
 
     def _collect_waiting_times(self):
         """
-        Retrieve the waiting time of every car in the incoming roads
+        Returns waiting times of all cars in the simulation
         """
         incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
         car_list = traci.vehicle.getIDList()
@@ -100,6 +104,9 @@ class Simulation:
         return total_waiting_time
 
     def _choose_action(self, current_step, old_action):
+        """
+        Returns action according to STL policy
+        """
         t = current_step % 126
         if 0 <= t < 40:
             return 0
@@ -110,12 +117,17 @@ class Simulation:
         elif 103 <= t < 126:
             return 3
 
-
     def _set_yellow_phase(self, old_action):
+        """
+        Sets a yellow phase for the traffic light
+        """
         yellow_phase_code = old_action * 2 + 1  # obtain the yellow phase code, based on the old action (ref on environment.net.xml)
         traci.trafficlight.setPhase("TL", yellow_phase_code)
 
     def _set_green_phase(self, action_number):
+        """
+        Sets a green phase for the traffic light
+        """
         if action_number == 0:
             traci.trafficlight.setPhase("TL", PHASE_NS_GREEN)
         elif action_number == 1:
@@ -126,6 +138,9 @@ class Simulation:
             traci.trafficlight.setPhase("TL", PHASE_EWL_GREEN)
 
     def _get_queue_length(self):
+        """
+        Returns the current total queue length in the simulation
+        """
         halt_N = traci.edge.getLastStepHaltingNumber("N2TL")
         halt_S = traci.edge.getLastStepHaltingNumber("S2TL")
         halt_E = traci.edge.getLastStepHaltingNumber("E2TL")
@@ -134,6 +149,10 @@ class Simulation:
         return queue_length
 
     def cumulative_total_wait(self):
+        """
+        Returns the sum of all waiting times throughout the episode
+        car in a queue = car is waiting -> queue_length = increment in waiting time per timestep.
+        """
         return np.sum(self._queue_length_episode)
 
     @property
@@ -146,6 +165,9 @@ class Simulation:
 
 
 def make_benchmark(n_cars, episode_count, seed_shift):
+    """
+    Runs a simulation and saves the testing data to a directory
+    """
     config = import_test_configuration(config_file='settings/testing_settings.ini')
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
 

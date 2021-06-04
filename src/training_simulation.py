@@ -36,6 +36,9 @@ class Simulation:
         self._is_greedy = is_greedy
 
     def run(self, episode, epsilon):
+        """
+        Runs a single episode of simulation
+        """
         start_time = timeit.default_timer()
 
         # first, generate the route file for this simulation and set up sumo
@@ -136,6 +139,9 @@ class Simulation:
         return simulation_time, training_time
 
     def _simulate(self, steps_todo):
+        """
+        Simulates 'steps_todo' steps
+        """
         if (self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
             steps_todo = self._max_steps - self._step
 
@@ -149,6 +155,9 @@ class Simulation:
             # 1 step while waiting in queue means 1 second waited, for each car, therefore queue_length == waited_seconds
 
     def _collect_waiting_times(self):
+        """
+        Return current total waiting time of all incoming cars
+        """
         incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
         car_list = traci.vehicle.getIDList()
         for car_id in car_list:
@@ -164,6 +173,9 @@ class Simulation:
 
 
     def _choose_action(self, state, epsilon, allow_stl):
+        """
+        Chooses action according to e-greedy policy, if such is enforced
+        """
         if random.random() < epsilon and self._is_greedy:
             return random.randint(0, self._num_actions - 1)  # random action
         else:
@@ -177,6 +189,9 @@ class Simulation:
             return np.argmax(prediction)  # the best action given the current state
 
     def _choose_stl_action(self, current_step, old_action):
+        """
+        Chooses action according to STL policy
+        """
         t = current_step % 126
         if 0 <= t < 40:
             return 0
@@ -188,11 +203,16 @@ class Simulation:
             return 3
 
     def _set_yellow_phase(self, old_action):
+        """
+        Sets a yellow phase for the traffic light
+        """
         yellow_phase_code = old_action * 2 + 1  # obtain the yellow phase code, based on the old action (ref on environment.net.xml)
         traci.trafficlight.setPhase("TL", yellow_phase_code)
 
     def _set_green_phase(self, action_number):
-
+        """
+        Sets a green phase for the traffic light
+        """
         if action_number == 0:
             traci.trafficlight.setPhase("TL", PHASE_NS_GREEN)
         elif action_number == 1:
@@ -205,6 +225,9 @@ class Simulation:
             print("Unexpected behaviour, ignoring...")
 
     def _get_queue_length(self):
+        """
+        Returns the current total queue length in the simulation
+        """
         halt_N = traci.edge.getLastStepHaltingNumber("N2TL")
         halt_S = traci.edge.getLastStepHaltingNumber("S2TL")
         halt_E = traci.edge.getLastStepHaltingNumber("E2TL")
@@ -213,6 +236,9 @@ class Simulation:
         return queue_length
 
     def _get_state(self):
+        """
+        Returns 1-d array-state according to uneven discretisation policy
+        """
         state = np.zeros(self._num_states)
         car_list = traci.vehicle.getIDList()
 
@@ -277,6 +303,9 @@ class Simulation:
         return state
 
     def _replay(self):
+        """
+        Initiates learning from memorised samples, i.e. replay
+        """
         batch = self._Memory.get_samples(self._Model.batch_size)
 
         if len(batch) > 0:  # if the memory is full enough
@@ -302,6 +331,9 @@ class Simulation:
             self._Model.train_batch(x, y)  # train the NN
 
     def _save_episode_stats(self):
+        """
+        Saves episode statistics for future graphing
+        """
         self._reward_store.append(self._sum_reward)  # how much negative reward in this episode
         self._cumulative_wait_store.append(
             self._sum_waiting_time)  # total number of seconds waited by cars in this episode

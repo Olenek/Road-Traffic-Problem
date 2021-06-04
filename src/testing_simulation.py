@@ -33,14 +33,16 @@ class Simulation:
         self._total_wait_time = 0
 
     def run(self, episode):
+        """
+        Runs a single episode of simulation
+        """
         start_time = timeit.default_timer()
 
-        # first, generate the route file for this simulation and set up sumo
+        # generate the routefile for the simulation and set up sumo
         car_timings = self._TrafficGen.generate_routefile(seed=episode)
         traci.start(self._sumo_cmd)
         # print("Simulating...")
 
-        # inits
         self._step = 0
         self._waiting_times = {}
         self._queue_length_episode = []
@@ -48,17 +50,15 @@ class Simulation:
         current_total_wait = 0
         old_action = -1  # dummy inits
         self._reward_episode = []
-        threshold = 0.75
+        threshold = 0.75  # threshold for initiating STL cycle
         counter = 0
         while self._step < self._max_steps:
-
             current_state = self._get_state()
-
             current_total_wait = self._collect_waiting_times()
 
-            allow_stl = sum(current_state) / len(current_state) >= threshold
+            allow_stl = sum(current_state) / len(current_state) >= threshold  # decide if to allow an STL cycle
             action = self._choose_action(current_state, allow_stl=allow_stl)
-            if action != 4:
+            if action != 4:  # if not STL cycle
                 # if the chosen phase is different from the last phase, activate the yellow phase
                 if self._step != 0 and old_action != action:
                     if old_action == 4:
@@ -87,10 +87,7 @@ class Simulation:
                         if old_action == 4:
                             self._set_yellow_phase(3)
                         else:
-                            try:
-                                self._set_yellow_phase(old_action)
-                            except:
-                                print(action, old_action)
+                            self._set_yellow_phase(old_action)
                         self._simulate(self._yellow_duration)
                     # execute the phase selected before
                     self._set_green_phase(action)
@@ -105,11 +102,14 @@ class Simulation:
         self._total_wait_time = current_total_wait
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
-        print("Made {} stl cycles".format(counter))
+        # print("Made {} stl cycles".format(counter))
 
         return total_reward, simulation_time, car_timings
 
     def _simulate(self, steps_todo):
+        """
+        Simulates 'steps_todo' steps
+        """
         if (self._step + steps_todo) >= self._max_steps:
             steps_todo = self._max_steps - self._step
 
@@ -121,6 +121,9 @@ class Simulation:
             self._queue_length_episode.append(queue_length)
 
     def _collect_waiting_times(self):
+        """
+        Return current total waiting time of all incoming cars
+        """
         incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
         car_list = traci.vehicle.getIDList()
         for car_id in car_list:
@@ -134,8 +137,10 @@ class Simulation:
         total_waiting_time = sum(self._waiting_times.values())
         return total_waiting_time
 
-
     def _choose_action(self, state, allow_stl):
+        """
+        Chooses best q-value action
+        """
         prediction = self._Model.predict_one(state)
         if not allow_stl and np.argmax(prediction) == 4:
             try:
@@ -146,7 +151,9 @@ class Simulation:
         return np.argmax(prediction)  # the best action given the current state
 
     def _choose_stl_action(self, current_step, old_action):
-
+        """
+        Chooses action according to STL policy
+        """
         t = current_step % 126
         if 0 <= t < 40:
             return 0
@@ -158,10 +165,16 @@ class Simulation:
             return 3
 
     def _set_yellow_phase(self, old_action):
+        """
+        Sets a yellow phase for the traffic light
+        """
         yellow_phase_code = old_action * 2 + 1  # obtain the yellow phase code, based on the old action (ref on environment.net.xml)
         traci.trafficlight.setPhase("TL", yellow_phase_code)
 
     def _set_green_phase(self, action_number):
+        """
+        Sets a green phase for the traffic light
+        """
         if action_number == 0:
             traci.trafficlight.setPhase("TL", PHASE_NS_GREEN)
         elif action_number == 1:
@@ -172,6 +185,9 @@ class Simulation:
             traci.trafficlight.setPhase("TL", PHASE_EWL_GREEN)
 
     def _get_queue_length(self):
+        """
+        Returns the current total queue length in the simulation
+        """
         halt_N = traci.edge.getLastStepHaltingNumber("N2TL")
         halt_S = traci.edge.getLastStepHaltingNumber("S2TL")
         halt_E = traci.edge.getLastStepHaltingNumber("E2TL")
@@ -180,6 +196,9 @@ class Simulation:
         return queue_length
 
     def _get_state(self):
+        """
+        Returns 1-d array-state according to uneven discretisation policy
+        """
         state = np.zeros(self._num_states)
         car_list = traci.vehicle.getIDList()
 
@@ -244,6 +263,10 @@ class Simulation:
         return state
 
     def cumulative_total_wait(self):
+        """
+        Returns the sum of all waiting times throughout the episode
+        car in a queue = car is waiting -> queue_length = increment in waiting time per timestep.
+        """
         return np.sum(self._queue_length_episode)
 
     @property
